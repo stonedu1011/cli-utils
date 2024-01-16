@@ -1,0 +1,93 @@
+# services
+# ".mounts" list all host mounts, path relative to configured data path (/usr/local/var/dev/<profile>/)
+# This section only affect folder creation. The binding config is controlled by docker-compose.yml
+services:
+  -
+    service: consul
+    display_name: Consul
+    display_version: 1.10.x
+    image: consul:1.10
+    mounts:
+      - consul
+  -
+    service: vault
+    display_name: Vault
+    display_version: 1.8.2
+    image: vault:1.8.2
+    mounts:
+      - vault/file
+      - vault/root-home
+  -
+    service: redis
+    display_name: Redis
+    display_version: 6.2.x
+    image: redis:6.2-alpine
+  -
+    service: cassandra
+    display_name: Cassandra
+    display_version: 3.11.4
+    image: cassandra:nfv-custom-3.11.4
+    build_args:
+      cassandra_version: 3.11.4
+      lucene_version: 3.11.3.0
+    mounts:
+      - cassandra
+  -
+    service: zookeeper
+    display_name: ZooKeeper
+    display_version: 3.5.x
+    image: zookeeper:3.5
+    build_args:
+      zookeeper_version: 3.4.14
+  -
+    service: kafka
+    display_name: Kafka
+    display_version: 2.7.1
+    image: kafka:2.7.1-wurstmeister
+    build_args:
+      kafka_version: 2.7.1
+      scala_version: 2.13
+      glibc_version: 2.34-r0
+  -
+    service: opensearch
+    display_name: OpenSearch
+    display_version: 2.2.0
+    image: opensearchproject/opensearch:2.2.0
+    mounts:
+      - opensearch
+  -
+    service: opensearch_dashboard
+    display_name: OpenSearch Dashboard
+    display_version: 2.2.0
+    image: opensearchproject/opensearch-dashboards:2.2.0 # version must match OpenSearch server version exactly!!!
+  -
+    service: cockroachdb
+    display_name: CockroachDB
+    display_version: 21.1.x
+    image: stonedu/cockroachdb:21.1.9
+    mounts:
+      - cockroachdb
+  -
+    service: jaeger
+    display_name: JaegerTracing
+    display_version: Latest 1.x
+    image: jaegertracing/all-in-one:1
+
+
+# pre_start should be shell scripts
+#pre_start:
+#  - pre-start-optest.sh
+  
+# pre_stop should be shell scripts  
+#pre_stop:
+#  - 
+  
+# post_start should be post start containers
+post_start:
+  - post_start_vault
+  - post_start_cassandra
+  - post_start_consul
+
+
+
+    

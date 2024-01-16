@@ -1,0 +1,52 @@
+services:
+  -
+    service: consul
+    display_name: Consul
+    display_version: 1.4.2
+    image: consul:1.4.2
+  -
+    service: vault
+    display_name: Vault
+    display_version: 1.0.3
+    image: vault:1.0.3
+  -
+    service: redis
+    display_name: Redis
+    display_version: 5.0.x
+    image: redis:5-alpine3.9
+  -
+    service: cassandra
+    display_name: Cassandra
+    display_version: 3.11.3
+    image: cassandra:nfv-custom-3.11.3
+    build_args:
+      cassandra_version: 3.11.3
+      lucene_version: 3.11.3.0
+  -
+    service: zookeeper
+    display_name: ZooKeeper
+    display_version: 3.4.13
+    image: zookeeper:3.4.13-wurstmeister
+    build_args:
+      zookeeper_version: 3.4.13
+  -
+    service: kafka
+    display_name: Kafka
+    display_version: 2.0.1
+    image: kafka:2.0.1-wurstmeister
+    build_args:
+      kafka_version: 2.0.1
+      scala_version: 2.12
+      glibc_version: 2.28-r0
+  -
+    service: es
+    display_name: ElasticSearch
+    display_version: 6.5.4
+    image: docker.elastic.co/elasticsearch/elasticsearch:6.5.4
+
+post_start:
+  - post_start_vault
+  - post_start_cassandra
+
+
+    

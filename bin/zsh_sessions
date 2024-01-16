@@ -1,0 +1,18 @@
+# By Livan, similar to bash_Apple_Terminal. Allow multi-tabs terminal to store history separately in Z Shell
+SHELL_HISTORY_DIR="$HOME/.zsh_sessions_history"
+SHELL_HISTORY_FILE="$SHELL_HISTORY_DIR/$TERM_SESSION_ID.history"
+
+if [ ! -d "$SHELL_HISTORY_DIR" ]; then
+  mkdir -m 700 -p $SHELL_HISTORY_DIR
+fi
+
+# cleanup history file that was not updated more than 60 days
+find $SHELL_HISTORY_DIR -mtime +60 -delete 
+
+# change history file
+HISTFILE="$SHELL_HISTORY_FILE"
+
+# some settings
+setopt appendhistory     
+unsetopt share_history     
+setopt incappendhistory  

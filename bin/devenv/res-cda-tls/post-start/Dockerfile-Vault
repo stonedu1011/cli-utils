@@ -1,0 +1,17 @@
+ARG VAULT_IMAGE
+FROM $VAULT_IMAGE
+
+COPY post-start-vault.sh /
+
+RUN chmod +x /post-start-vault.sh && \
+    apk --update add curl bash coreutils jq && \
+    rm -rf /var/lib/apt/lists/* && \
+    rm /var/cache/apk/* && \
+    mkdir -p /data
+
+COPY vault-data /data
+
+ENTRYPOINT ["/post-start-vault.sh"]
+
+# docker run -ti --name post-start-debug --rm --network cda-tls_default -v "/usr/local/var/dev/cda-tls/vault/file:/vault/file:delegated" --entrypoint "/bin/bash" post-start:cda-tls-vault
+# export VAULT_TOKEN=`cat /vault/file/init.json | jq -r '.root_token'` && export VAULT_ADDR="http://vault:8200"

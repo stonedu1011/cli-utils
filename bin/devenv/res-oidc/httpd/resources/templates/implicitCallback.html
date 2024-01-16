@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/thymeleaf-extras-springsecurity3">
+<head>
+    <meta charset="UTF-8">
+    <title>OIDF Conformance: Processing Implicit Callback</title>
+
+    <!-- Latest compiled and minified CSS -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+
+    <!-- Optional theme -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap-theme.min.css" integrity="sha384-rHyoN1iRsVXV4nD0JutlnGaslCJuC7uwjduW9SVrLvRYooPp2bWYgmgJQIXwl/Sp" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=PT+Sans">
+    <link rel="stylesheet" type="text/css" href="/css/layout.css">
+
+
+
+</head>
+<body>
+    <div class="pageHeader container-fluid">
+        <div class="row-fluid">
+            <div class="col-md-8">
+                <a href="index.html"><img src="/images/openid.png"></a>
+            </div>
+        </div>
+    </div>
+    <div class="clearfix"></div>
+
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-xs-12 col-md-6 col-md-offset-3 center-block center-text">
+                <h1 class="text-center">Please wait...</h1>
+                <h2 class="text-center">Processing response from authorization server<sup><span class="glyphicon glyphicon-question-sign" data-toggle="tooltip" title="The server should have returned its results as part of a URI fragment. This data normally stays in the browser and needs to be explicitly sent to the test framework for further processing." data-placement="right"></span></sup></h2>
+                <p id="complete" class="bg-info collapse">The response has been sent to the server for processing. You may return to <a href="">the test results page.</a></p>
+            </div>
+        </div>
+    </div>
+    <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+    <!-- Include all compiled plugins (below), or include individual files as needed -->
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
+
+    <footer class="pageFooter">
+        <span class="muted">OpenID Foundation conformance suite</span>
+    </footer>
+
+    <script type="text/javascript" th:inline="javascript">
+        var submitComplete = false;
+        function assumeComplete() {
+            if (submitComplete) {
+                return;
+            }
+            console.log("assumeComplete workaround for https://gitlab.com/openid/conformance-suite/-/issues/766 activated - assuming post has completed as 5 seconds have elapsed")
+            // add a hidden tag so that Selenium can detect we're done processing
+            $('#complete').append('<span id="submission_complete" class="hidden"></span>');
+        }
+
+        $(function() {
+
+            var hash = window.location.hash;
+
+            var returnUrl = [[${returnUrl}]];
+
+            // workaround https://gitlab.com/openid/conformance-suite/-/issues/766 by assuming that the post completes
+            // after 5 seconds
+            setTimeout(function(){ assumeComplete(); }, 5000);
+
+            $.post({
+                url: [[${implicitSubmitUrl}]],
+                data: hash,
+                contentType: "text/plain", // this will be parsed on the server side, no need to wrap it
+            }).always(function () {
+                console.log("implicit submit complete")
+                $('#complete a').attr('href', returnUrl); // provide the link only after the page is rendered.
+                $('#complete').show();
+                submitComplete = true;
+                // add a hidden tag so that Selenium can detect we're done processing
+                $('#complete').append('<span id="submission_complete" class="hidden"></span>');
+            });
+
+
+        });
+    </script>
+
+
+</body>
+</html>

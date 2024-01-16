@@ -1,0 +1,38 @@
+version: '3.9'
+
+services:
+  samlidp:
+    extra_hosts:
+      - "idp.samltest.net:${LOCAL_IP_ADDRESS}"
+      - "sp.samltest.net:${LOCAL_IP_ADDRESS}"
+      - "localhost:${LOCAL_IP_ADDRESS}"
+      - "msx.com:${LOCAL_IP_ADDRESS}"
+      - "saml.msx.com:${LOCAL_IP_ADDRESS}"
+    image: "${samltester_image}"
+    ports:
+      - "8070:8070"
+    environment:
+      SPRING_CLOUD_CONSUL_HOST: "host.docker.internal"
+      SPRING_CLOUD_VAULT_HOST: "host.docker.internal"
+      SPRING_CLOUD_CONSUL_DISCOVERY_IPADDRESS: "host.docker.internal"
+      SPRING_REDIS_HOST: "host.docker.internal"
+      POPULATE: samlidp
+
+  samlsp:
+    extra_hosts:
+      - "idp.samltest.net:${LOCAL_IP_ADDRESS}"
+      - "sp.samltest.net:${LOCAL_IP_ADDRESS}"
+      - "localhost:${LOCAL_IP_ADDRESS}"
+      - "msx.com:${LOCAL_IP_ADDRESS}"
+      - "saml.msx.com:${LOCAL_IP_ADDRESS}"
+    image: "${samltester_image}"
+    ports:
+      - "8090:8090"
+    environment:
+      SPRING_CLOUD_CONSUL_HOST: "host.docker.internal"
+      SPRING_CLOUD_VAULT_HOST: "host.docker.internal"
+      SPRING_CLOUD_CONSUL_DISCOVERY_IPADDRESS: "host.docker.internal"
+      SPRING_REDIS_HOST: "host.docker.internal"
+      POPULATE: samlsp
+
+

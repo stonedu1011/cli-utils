@@ -1,0 +1,57 @@
+#!/bin/bash
+
+LAUNCHD_SERVICES=(
+  # "homebrew.mxcl.redis"
+)
+
+env_info() {
+  echo_info "Dev Environment with Vault"
+  printf "%25s %25s %25s \n" "Component/Service" "Version" "Containerization"
+  printf "%25s %25s %25s \n" "Vault" "0.5+ or Installed" "Containerized Only"
+}
+
+env_start() {
+  env_info
+  for service in "${LAUNCHD_SERVICES[@]}"; do
+    launchctl start $service
+  done
+  echo_info "Done"
+	
+  # launchctl start homebrew.mxcl.rabbitmq
+}
+
+env_stop() {
+  env_info
+  for service in "${LAUNCHD_SERVICES[@]}"; do
+    launchctl stop $service
+  done
+  echo_info "Done" 
+}
+
+env_restart() {
+  env_info
+  for service in "${LAUNCHD_SERVICES[@]}"; do
+    launchctl stop $service
+  done
+  
+  for service in "${LAUNCHD_SERVICES[@]}"; do
+    launchctl start $service
+  done
+  echo_info "Done"
+}
+
+env_start_docker() {
+  docker run -d -p 8200:8200 -e "VAULT_DEV_ROOT_TOKEN_ID=$VAULT_DEV_ROOT_TOKEN_ID" -e "VAULT_DEV_LISTEN_ADDRESS=$VAULT_DEV_LISTEN_ADDRESS" -e 'VAULT_LOCAL_CONFIG={"backend":{"file":{"path":"/vault/file"}},"disable_mlock":true}' vault
+}
+
+env_stop_docker() {
+  # consul
+  docker_stop_container "vault"
+  docker_remove_container "vault"
+}
+
+env_restart_docker() {
+  # consul
+  env_stop_docker
+  env_start_docker
+}

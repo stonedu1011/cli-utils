@@ -1,0 +1,34 @@
+#!/bin/bash
+
+env_info() {
+  echo_info "Dev Environment for PHP"
+  printf "%25s %25s %25s \n" "Component/Service" "Version" "Containerization"
+  printf "%25s %25s %25s \n" "Httpd" "2.4+ or Installed" "Not Supported"
+  printf "%25s %25s %25s \n" "MySql" "5.6+ or Installed" "Not Supported"
+}
+
+env_start() {
+  env_info
+	[ -e "$(which mysql.server)" ] && [ -e "$(which httpd)" ] || { echo_error "Unable to find 'httpd' or 'mysql.server'."; return 1; }
+	sudo httpd -k start
+	sudo mysql.server start
+  echo_info "Done"
+	
+  # launchctl start homebrew.mxcl.rabbitmq
+}
+
+env_stop() {
+  env_info
+	[ -e "$(which mysql.server)" ] && [ -e "$(which httpd)" ] || { echo_error "Unable to find 'httpd' or 'mysql.server'."; return 1; }
+	sudo httpd -k stop
+	sudo mysql.server stop
+  echo_info "Done" 
+}
+
+env_restart() {
+  env_info
+	[ -e "$(which mysql.server)" ] && [ -e "$(which httpd)" ] || { echo_error "Unable to find 'httpd' or 'mysql.server'."; return 1; }
+	sudo httpd -k restart
+	sudo mysql.server restart
+  echo_info "Done"
+}

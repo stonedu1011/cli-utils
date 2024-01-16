@@ -1,0 +1,158 @@
+version: '3.4'
+
+services:
+#Infraservices
+  consul:
+    image: "${consul_image}"
+    restart: always
+    command: ["agent", "-server", "-ui", "-client=0.0.0.0", "-bind=127.0.0.1", "-retry-join=127.0.0.1", "-bootstrap-expect=1"]
+    ports:
+      - "8300:8300/tcp"
+      - "8400:8400/tcp"
+      - "8301-8302:8301-8302/tcp"
+      - "8301-8302:8301-8302/udp"
+      - "8500:8500/tcp"
+      - "8600:8600/tcp"
+      - "8600:8600/udp"
+    volumes:
+      - "${CONTAINER_DATA_PATH}/consul:/consul/data"
+      
+  vault:
+    image: "${vault_image}"
+    restart: always
+    environment:
+      SKIP_SETCAP: "true"
+      VAULT_DEV_ROOT_TOKEN_ID: "replace_with_token_value"
+      # VAULT_ADDR: "http://127.0.0.1:8200"
+      VAULT_LOCAL_CONFIG: ""
+    ports:
+      - "8200:8200"
+    volumes:
+      - "${CONTAINER_DATA_PATH}/vault/file:/vault/file"
+      - "${CONTAINER_DATA_PATH}/vault/root-home:/root"
+      
+  redis:
+    image: "${redis_image}"
+    restart: always
+    ports:
+      - "6379:6379"
+    
+  cassandra:
+    image: "${cassandra_image}"
+    restart: always
+    build:
+      context: "./${RESOURCE_DIR}/cassandra"
+      dockerfile: Dockerfile
+      args:
+        - "CASSANDRA_VERSION=${build_args_cassandra_version}"
+        - "LUCENE_VERSION=${build_args_lucene_version}"
+    ports:
+      - "7000-7001:7000-7001"
+      - "7199:7199"
+      - "9042:9042"
+      - "9160:9160"
+    environment:
+      CASSANDRA_START_RPC: "true"
+    volumes:
+      - "${CONTAINER_DATA_PATH}/cassandra:/var/lib/cassandra"
+
+  zookeeper:
+    image: "${zookeeper_image}"
+    restart: always
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+
+  kafka:
+    image: "${kafka_image}"
+    restart: always
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_METRIC_REPORTERS: io.confluent.metrics.reporter.ConfluentMetricsReporter
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      CONFLUENT_METRICS_REPORTER_BOOTSTRAP_SERVERS: kafka:9092
+      CONFLUENT_METRICS_REPORTER_ZOOKEEPER_CONNECT: zookeeper:2181
+      CONFLUENT_METRICS_REPORTER_TOPIC_REPLICAS: 1
+      CONFLUENT_METRICS_ENABLE: 'true'
+      CONFLUENT_SUPPORT_CUSTOMER_ID: 'anonymous'
+    depends_on:
+      - zookeeper
+      
+  cpcc: #cp-control-center
+    image: "${cpcc_image}"
+    restart: always
+    depends_on:
+      - zookeeper
+      - kafka
+    ports:
+      - "9021:9021"
+    environment:
+      CONTROL_CENTER_BOOTSTRAP_SERVERS: 'kafka:9092'
+      CONTROL_CENTER_ZOOKEEPER_CONNECT: 'zookeeper:2181'
+      CONTROL_CENTER_REPLICATION_FACTOR: 1
+      CONTROL_CENTER_INTERNAL_TOPICS_PARTITIONS: 1
+      CONTROL_CENTER_MONITORING_INTERCEPTOR_TOPIC_PARTITIONS: 1
+      CONFLUENT_METRICS_TOPIC_REPLICATION: 1
+      PORT: 9021
+      
+  es:
+    image: "${es_image}"
+    restart: always
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    environment:
+      discovery.type: "single-node"
+      cluster.name: "elasticsearch"
+      ES_JAVA_OPTS: "-Xms256m -Xmx256m"
+  
+  # Post Start
+  post_start_vault:
+    image: "post-start:${PROJECT_NAME}-vault"
+    build:
+      context: "./${RESOURCE_DIR}/post-start"
+      dockerfile: Dockerfile-Vault
+      args:
+        - "VAULT_IMAGE=${vault_image}"
+    environment:
+      VAULT_DEV_ROOT_TOKEN_ID: "replace_with_token_value"
+    depends_on:
+      - vault
+    links:
+      - vault
+      
+  post_start_cassandra:
+    image: "post-start:${PROJECT_NAME}-cassandra"
+    restart: on-failure
+    build:
+      context: "./${RESOURCE_DIR}/post-start"
+      dockerfile: Dockerfile-Cassandra
+      args:
+        - "CASSANDRA_VERSION=${build_args_cassandra_version}"
+    depends_on:
+      - cassandra
+    links:
+      - cassandra
+  
+  post_start_cpcc:
+    image: "post-start:${PROJECT_NAME}-cpcc"
+    restart: on-failure
+    build:
+      context: "./${RESOURCE_DIR}/post-start"
+      dockerfile: Dockerfile-CPCC
+    depends_on:
+      - cpcc
+    links:
+      - cpcc
+
+      
+      

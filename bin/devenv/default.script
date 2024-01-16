@@ -1,0 +1,241 @@
+#!/bin/bash
+
+DOCKER_COMPOSE_PREFIX="docker-compose-"
+DOCKER_COMPOSE_SUFFIX=".yml"
+RESOURCE_DIR_PREFIX="res-"
+PRE_START_DIR="pre-start"
+PRE_STOP_DIR="pre-stop"
+
+init() {
+  # export ip address
+  export LOCAL_IP_ADDRESS="$(ipconfig getifaddr en0)"
+
+  CONTAINER_DATA_GROUP="$SUB_ACTION"
+  export PROJECT_NAME="$SUB_ACTION"
+  export CONTAINER_DATA_PATH="/usr/local/var/dev/$CONTAINER_DATA_GROUP"
+  export RESOURCE_DIR="${RESOURCE_DIR_PREFIX}${SUB_ACTION}"
+
+  [ -e ${CURRENT_DEVENV_SCRIPT_DIR}/libs/bash-yaml/yaml.sh ] && source ${CURRENT_DEVENV_SCRIPT_DIR}/libs/bash-yaml/yaml.sh
+
+  # Parse and transform some variables
+  #    parse_yaml $CURRENT_DEVENV_SCRIPT_DIR/devenv-${SUB_ACTION}.yml && echo_info # for debugging
+  create_variables $CURRENT_DEVENV_SCRIPT_DIR/devenv-${SUB_ACTION}.yml
+
+  for i in "${!services__service[@]}"; do
+    service=${services__service[$i]}
+    eval export ${service}_image="${services__image[$i]}"
+    eval export ${service}_container_name="${PROJECT_NAME}-${service/_/-}"
+  done
+
+  for buildArgName in "${!services__build_args_@}"; do
+    eval export ${buildArgName/services__/}="${!buildArgName}"
+  done
+
+  normalize_script_paths "pre_start"
+  normalize_script_paths "pre_stop"
+
+  # Prepare data volume
+  docker_prepare_data_volumes || return 1
+
+  # Choose docker compose file
+  docker_compose_file="$CURRENT_DEVENV_SCRIPT_DIR/${DOCKER_COMPOSE_PREFIX}${SUB_ACTION}${DOCKER_COMPOSE_SUFFIX}"
+
+  initialized="true"
+}
+
+# $1 category name. e.g. "pre-start" or "pre-stop"
+# $2... scripts
+exec_scripts() {
+  local name="$1" && shift
+  if [ $# -eq 0 ]; then
+    return 0
+  fi
+
+  for script in $@; do
+    echo_info "Executing ${CYAN}$name${NC} script ${GREEN}$script${NC}..."
+    local script_abs_path="$CURRENT_DEVENV_SCRIPT_DIR/$RESOURCE_DIR/$script"
+    if [ -e "$script_abs_path" ]; then
+      (
+        $script_abs_path
+      )
+      ret=$?
+      return $ret
+      if ! $script_abs_path; then
+        echo_error "${YELLOW}$script_abs_path${NC} exited with non-zero value"
+        return 1
+      fi
+    else
+      echo_error "Script with absolute path ${YELLOW}$script_abs_path${NC} does not exist." && return 1
+    fi
+  done
+}
+
+exec_pre_start_scripts() {
+  exec_scripts "pre-start" ${pre_start[@]}
+}
+
+exec_pre_stop_scripts() {
+  exec_scripts "pre-stop" ${pre_stop[@]}
+}
+
+exec_clean_up() {
+  echo_info "Cleanup..."
+  echo -e "Pruning containers... " && docker container prune -f
+  echo -e "Pruning volumes... " && docker volume prune --filter "label!=devenv.persist" -f
+  echo -e "Pruning images... " && docker image prune -f
+}
+
+wait_for_post_start_containers() {
+  if [ -z "${post_start[*]}" ]; then
+    return 0
+  fi
+
+  echo_info "Waiting for post-start scripts to finish ..."
+  docker compose -f "$docker_compose_file" -p "$SUB_ACTION" logs --follow "${post_start[@]}" $outputSuffix || return 1
+}
+
+# $1 script array name. e.g. "pre_start"
+normalize_script_paths() {
+  eval "local list=(\${${1}[@]})"
+  local paths=()
+  for script in "${list[@]}"; do
+    paths+=("$PRE_START_DIR/$script")
+  done
+  eval "${1}=(${paths[@]})"
+}
+
+# $1 title
+# $2 script array name. e.g. "pre_start"
+print_list() {
+  eval "local list=(\${${2}[@]})"
+  if [ ${#list[@]} -ne 0 ]; then
+    printf "%4s %-20s\n" "" "$1:"
+    for item in "${list[@]}"; do
+      printf "%8s %0s \n" "" "$item"
+    done
+  else
+    printf "%4s %-10s %4s\n" "" "$1:" "NONE"
+  fi
+}
+
+env_info() {
+  [ -z $initialized ] && init
+
+  printf "\n"
+
+  echo_info "Dev Environment for NFV Microservices"
+  printf "%15s %10s %35s \n" "Service" "Version" "Image/Tag"
+
+  for i in "${!services__service[@]}"; do
+    printf "%15s %10s %35s \n" "${services__display_name[$i]}" "${services__display_version[$i]}" "${services__image[$i]}"
+  done
+  printf "\n"
+
+  echo_info "Data Volumes: "
+  for path in "${mounts[@]}"; do
+    printf "%9s %s \n" "" "$path"
+  done
+  printf "\n"
+
+  echo_debug "Arguments:"
+  for buildArgName in "${!build_args_@}"; do
+    printf "%35s %1s %0s \n" "$buildArgName" "=" "${!buildArgName}"
+  done
+  printf "\n"
+
+  echo_debug "Pre-Compose Scripts:"
+  print_list "pre-start" "pre_start"
+  print_list "pre-stop" "pre_stop"
+  printf "\n"
+}
+
+env_start() {
+  env_info
+  echo_error "Non-Containerized Service Not Supported"
+}
+
+env_stop() {
+  env_info
+  echo_error "Non-Containerized Service Not Supported"
+}
+
+env_restart() {
+  env_info
+  echo_error "Non-Containerized Service Not Supported"
+}
+
+env_prepare_docker() {
+  init || return 1
+  env_info
+  docker compose -f "$docker_compose_file" -p "$SUB_ACTION" build || return 1
+  exec_clean_up
+}
+
+env_start_docker() {
+  init || return 1
+  env_info
+  exec_pre_start_scripts || return 1
+  docker compose -f "$docker_compose_file" -p "$SUB_ACTION" up -d --force-recreate --remove-orphans || return 1
+  wait_for_post_start_containers || return 1
+  exec_clean_up
+  echo_info "Done"
+}
+
+env_stop_docker() {
+  init || return 1
+  env_info
+  exec_pre_stop_scripts || return 1
+  docker compose -f "$docker_compose_file" -p "$SUB_ACTION" down --remove-orphans || return 1
+  exec_clean_up
+  echo_info "Done"
+}
+
+env_restart_docker() {
+  init || return 1
+  env_info
+  exec_pre_stop_scripts || return 1
+  docker compose -f "$docker_compose_file" -p "$SUB_ACTION" down --remove-orphans || return 1
+  exec_pre_start_scripts || return 1
+  docker compose -f "$docker_compose_file" -p "$SUB_ACTION" up -d --force-recreate --remove-orphans || return 1
+  wait_for_post_start_containers || return 1
+  exec_clean_up
+  echo_info "Done"
+}
+
+env_add_docker() {
+  init || return 1
+  env_info
+  docker compose -f "$docker_compose_file" -p "$SUB_ACTION" run -e PROPERTIES=load post_start_consul || return 1
+  echo_info "Done"  
+}
+
+env_remove_docker() {
+  init || return 1
+  env_info
+  docker compose -f "$docker_compose_file" -p "$SUB_ACTION" run -e PROPERTIES=unload post_start_consul || return 1
+  echo_info "Done"  
+}
+
+docker_prepare_data_volumes() {
+  create_directory_if_absent "$CONTAINER_DATA_PATH"
+
+  for i in "${!services__mounts[@]}"; do
+    mounts+=("$CONTAINER_DATA_PATH/${services__mounts[$i]}")
+  done
+
+  # legacy support
+  if [ -z ${services__mounts+x} ]; then
+    echo_info '"mounts" is not defined in services. Using predefined data volume paths'
+    mounts+=("$CONTAINER_DATA_PATH/consul")
+    mounts+=("$CONTAINER_DATA_PATH/vault/file")
+    mounts+=("$CONTAINER_DATA_PATH/vault/root-name")
+    mounts+=("$CONTAINER_DATA_PATH/cassandra")
+    mounts+=("$CONTAINER_DATA_PATH/cockroachdb")
+    mounts+=("$CONTAINER_DATA_PATH/mongodb")
+  fi
+
+  # create folder
+  for path in "${mounts[@]}"; do
+    create_directory_if_absent $path
+  done
+}

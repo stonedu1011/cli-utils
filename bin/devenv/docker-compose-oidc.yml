@@ -1,0 +1,50 @@
+version: '3.9'
+
+networks:
+  default:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 10.147.0.0/16
+
+services:
+  mongodb:
+    image: "${mongodb_image}"
+    command: "--bind_ip_all"
+    ports:
+     - "27017:27017"
+    volumes:
+     - "${CONTAINER_DATA_PATH}/mongodb:/data/db:cached"
+     
+  httpd:
+    image: "${httpd_image}"
+    build:
+      context: "./${RESOURCE_DIR}/httpd"
+      dockerfile: Dockerfile
+    ports:
+     - "8443:8443"
+    depends_on:
+     - oidc_tester
+  
+  oidc_tester:
+    image: "${oidc_tester_image}"
+    build:
+      context: "./${RESOURCE_DIR}/conformance"
+      dockerfile: Dockerfile
+      args:
+        - "CONFORMANCE_SUITE_VERSION=${build_args_conformance_suite_version}"
+    command: >
+      --fintechlabs.base_url=https://localhost:8443
+      --fintechlabs.devmode=true
+      --fintechlabs.startredir=true
+    links:
+     - mongodb:mongodb
+    depends_on:
+     - mongodb
+    logging:
+      # limit logs retained on host
+      driver: "json-file"
+      options:
+        max-size: "500k"
+        max-file: "5"

@@ -1,0 +1,38 @@
+# services
+# ".mounts" list all host mounts, path relative to configured data path (/usr/local/var/dev/<profile>/)
+# This section only affect folder creation. The binding config is controlled by docker-compose.yml
+services:
+  -
+    service: sonarqube
+    display_name: SonarQube
+    display_version: 8.9.6
+    image: sonarqube-arm64:8.9.6
+    build_args:
+      sonarqube_version: 8.9.6.50800
+      sonarqube_zip_url: https://binaries.sonarsource.com/Distribution/sonarqube/sonarqube-8.9.6.50800.zip
+
+  -
+    service: es
+    display_name: ElasticSearch
+    display_version: 7.16.3
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.16.3
+    mounts:
+      - es
+
+# pre_start should be shell scripts
+#pre_start:
+#  - pre-start-optest.sh
+  
+# pre_stop should be shell scripts  
+#pre_stop:
+#  - 
+  
+# post_start should be post start containers
+#post_start:
+#  - post_start_vault
+#  - post_start_cassandra
+#  - post_start_consul
+
+
+
+    

@@ -1,0 +1,7 @@
+ARG CASSANDRA_VERSION
+FROM cassandra:$CASSANDRA_VERSION
+
+COPY post-start-cassandra.sh /
+RUN chmod +x /post-start-cassandra.sh
+
+ENTRYPOINT ["/post-start-cassandra.sh"]

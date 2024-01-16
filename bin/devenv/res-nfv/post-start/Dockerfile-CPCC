@@ -1,0 +1,8 @@
+FROM alpine:3.8
+
+COPY post-start-cpcc.sh /
+
+RUN chmod +x /post-start-cpcc.sh && \
+		apk add --no-cache curl
+
+ENTRYPOINT ["/post-start-cpcc.sh"]

@@ -1,0 +1,167 @@
+declare ACTION
+declare -a ACTION_ARGS_ALL
+declare -a ACTION_ARGS_UNPARSED
+
+print_global_options() {
+  cat << EOF
+Global Options:
+    -h|-H|--help:   Show this usage page
+EOF
+}
+
+print_common_action_options() {
+  cat << EOF
+    --confirm:     Confirm action. Applicable to some scripts
+EOF
+}
+
+colorize() {
+	RED='\033[0;31m'
+	GREEN='\033[0;32m'
+	YELLOW='\033[1;33m'
+  CYAN='\033[0;36m'
+  GREY='\033[0;90m'
+	NC='\033[0m' # No Color
+}
+
+# $1 the message
+echo_error() {
+  echo -e "[${RED}Error${NC}]   $@"
+}
+
+# $1 the message
+echo_warn() {
+  echo -e "[${YELLOW}Warning${NC}] $@"
+}
+
+# $1 the message
+echo_info() {
+  echo -e "[${CYAN}Info${NC}]    $@"
+}
+
+# $1 the message
+echo_debug() {
+  echo -e "[${GREY}Debug${NC}]   $@"
+}
+
+# $1 the message
+prompt_yesno() {
+  read -t 120 -n 1 -p "$@ [y/n]: " RESP; echo
+  [ "$RESP" == 'y' ] && return 0 || return 1
+}
+
+# $1: Action string
+summarize_script_environment() {
+  cat << EOF
+
+Executing Script:     $(basename $0)
+Action:               $ACTION
+Arguments:            ${ACTION_ARGS_ALL[@]}
+
+EOF
+}
+
+parse_global_args() {
+  local action_found=false
+  declare -a action_args
+  while [ "$#" -gt 0 ] ; do
+    case "$1" in
+      -h|-H|-help|--help)
+        ACTION_ARGS_ALL=("${action_args[@]}")
+        ACTION_ARGS_UNPARSED=("${action_args[@]}")
+        return 1
+        ;;
+      -*|--*)
+        if ! $action_found; then  
+          echo_error "Unrecognized global option $1. If this is action specific argument, please put it after the action name"
+          return 1
+        else
+          action_args+=("$1")
+          shift
+        fi
+        ;;
+      *)
+        if ! $action_found; then  
+          ACTION="$1"
+          action_found=true
+          shift
+        else
+          action_args+=("$1")
+          shift
+        fi
+        ;;
+    esac
+  done
+  ACTION_ARGS_ALL=("${action_args[@]}")
+  ACTION_ARGS_UNPARSED=("${action_args[@]}")
+}
+
+parse_common_action_args() {
+  SERVICE=""
+  VERSION=""
+  LABELS=""
+  declare -a unknown_args
+  while [ "$#" -gt 0 ] ; do
+    case "$1" in
+      --confirm)
+        CONFIRM=true; shift
+        ;;
+      *)
+        unknown_args+=("$1")
+        shift
+        ;;
+    esac
+  done
+  ACTION_ARGS_UNPARSED=("${unknown_args[@]}")
+}
+
+# take $@ of the script
+# this function parse arguments and set various variables
+# This function update a number of variables: ACTION, ACTION_ARGS_ALL, ACTION_ARGS_UNPARSED
+prepare() {
+  
+  # required arguments
+  parse_global_args "$@" || return 1
+  
+  # Summrize
+  summarize_script_environment
+  
+  # common arguments
+  parse_common_action_args "${ACTION_ARGS_UNPARSED[@]}" || return 1 
+}
+
+# $1 the action name
+validate_action() {
+  if [ -z "$1" ]; then
+    echo_error "Please specify the action. Use '-h' to see available actions. "
+    return 1
+  fi
+  
+  cmd="action_${1/ /_}"
+  if ! command -v $cmd >/dev/null 2>&1; then
+    echo_error "Invalid action [$1]. Command [$cmd] is not found. Please use '-h' to see available actions."
+    return 1
+  fi
+}
+
+# $1 The action name
+dispatch_action() {
+  cmd="action_${1/ /_}"
+  if validate_action $1; then
+    $cmd
+    return $?
+  else
+    return 1
+  fi
+}
+
+# $1 directory path
+create_directory_if_absent() {
+  [ -d "$1" ] && return 0
+  if [ -e "$1" ]; then
+    echo_warn "Trying to create directory '$1', but the path already exists and not a directory."
+    return 1
+  fi
+  mkdir -p -v $1
+}
+

@@ -1,0 +1,80 @@
+version: '3'
+
+services:
+  consul:
+    image: consul:0.9.3
+    restart: always
+    command: ["agent", "-server", "-ui", "-client=0.0.0.0", "-bind=127.0.0.1", "-retry-join=127.0.0.1", "-bootstrap-expect=1"]
+    ports:
+      - "8300:8300/tcp"
+      - "8400:8400/tcp"
+      - "8301-8302:8301-8302/tcp"
+      - "8301-8302:8301-8302/udp"
+      - "8500:8500/tcp"
+      - "8600:8600/tcp"
+      - "8600:8600/udp"
+    volumes:
+      - "${CONTAINER_DATA_PATH}/consul:/consul/data"
+      
+  vault:
+    image: vault:0.9.3
+    restart: always
+    environment:
+      SKIP_SETCAP: "true"
+      VAULT_DEV_ROOT_TOKEN_ID: "replace_with_token_value"
+      VAULT_ADDR: "http://127.0.0.1:8200"
+    ports:
+      - "8200:8200"
+    volumes:
+      - "${CONTAINER_DATA_PATH}/vault/file:/vault/file"
+      - "${CONTAINER_DATA_PATH}/vault/root-home:/root"
+      
+  redis:
+    image: redis:3.2-alpine
+    restart: always
+    ports:
+      - "6379:6379"
+    
+  cassandra:
+    image: cassandra:nfv-custom-3.10
+    restart: always
+    build:
+      context: "./${RESOURCE_DIR}/cassandra"
+      dockerfile: Dockerfile-cassandra
+    ports:
+      - "7000-7001:7000-7001"
+      - "7199:7199"
+      - "9042:9042"
+      - "9160:9160"
+    environment:
+      CASSANDRA_START_RPC: "true"
+    volumes:
+      - "${CONTAINER_DATA_PATH}/cassandra:/var/lib/cassandra"
+      
+  #kafka image based on spotify/kafka    
+  kafka:
+#    image: kafka:nfv-custom
+    image: spotify/kafka
+    restart: always
+#    build:
+#      context: "./${RESOURCE_DIR}/kafka"
+#      dockerfile: Dockerfile-kafka
+    ports:
+      - "2181:2181"
+      - "9092:9092"
+    environment:
+      ADVERTISED_HOST: 127.0.0.1
+      ADVERTISED_PORT: 9092
+      
+  es:
+    image: docker.elastic.co/elasticsearch/elasticsearch:6.3.2
+    restart: always
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    environment:
+      discovery.type: "single-node"
+      cluster.name: "elasticsearch"
+      ES_JAVA_OPTS: "-Xms256m -Xmx256m"
+
+      

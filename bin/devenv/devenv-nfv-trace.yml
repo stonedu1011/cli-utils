@@ -1,0 +1,79 @@
+services:
+  -
+    service: consul
+    display_name: Consul
+    display_version: 1.6.0
+    image: consul:1.6.0
+  -
+    service: vault
+    display_name: Vault
+    display_version: 1.3.0
+    image: vault:1.3.0
+  -
+    service: redis
+    display_name: Redis
+    display_version: 5.0.x
+    image: redis:5.0-alpine
+  -
+    service: cassandra
+    display_name: Cassandra
+    display_version: 3.11.4
+    image: cassandra:nfv-custom-3.11.4
+    build_args:
+      cassandra_version: 3.11.4
+      lucene_version: 3.11.3.0
+  -
+    service: zookeeper
+    display_name: ZooKeeper
+    display_version: 3.4.14 
+    image: zookeeper:3.4.14-wurstmeister
+    build_args:
+      zookeeper_version: 3.4.14
+  -
+    service: kafka
+    display_name: Kafka
+    display_version: 2.2.1
+    image: kafka:2.2.1-wurstmeister
+    build_args:
+      kafka_version: 2.2.1
+      scala_version: 2.12
+      glibc_version: 2.28-r0
+  -
+    service: es
+    display_name: ElasticSearch
+    display_version: 7.4.2
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.4.2
+  -
+    service: jaeger
+    display_name: Jaeger Tracing
+    display_version: 1.17
+    image: jaegertracing/all-in-one:1.17
+  -
+    service: zipkin
+    display_name: Zipkin
+    display_version: 2.x
+    image: openzipkin/zipkin-slim:2
+    
+  -
+    service: zipkinui
+    display_name: Zipkin UI
+    display_version: 2.x
+    image: openzipkin/zipkin-ui:2
+
+# pre_start should be shell scripts
+#pre_start:
+#  - pre-start-optest.sh
+  
+# pre_stop should be shell scripts  
+#pre_stop:
+#  - 
+  
+# post_start should be post start containers
+post_start:
+  - post_start_vault
+  - post_start_cassandra
+  - post_start_consul
+
+
+
+    

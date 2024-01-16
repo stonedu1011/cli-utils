@@ -1,0 +1,150 @@
+print-standard-options() {
+  cat << EOF
+    -d|--directory: Base directory. Default: Current directory.
+
+    -s|--script:    Customized script. Script need to define at least one of following:
+                        handle-folder-validate()
+                        handle-prepare()
+                        handle-apply-changes()
+                        handle-verify-changes()
+                        pre-commit-changes()
+                        customized-commit-message()
+                        pre-push-changes()
+                    Optional Variables:
+                        $TARGET_FOLDERS array To override folder search result
+
+    -f|--force:    Force operation on non-existing items    
+EOF
+}
+
+colorize() {
+	RED='\033[0;31m'
+	GREEN='\033[0;32m'
+	YELLOW='\033[1;33m'
+	NC='\033[0m' # No Color
+}
+
+parse-args() {
+  VERB="status"
+  BASE_DIR="."
+  SCRIPT=""
+  FORCE=false
+  while [ "$#" -gt 0 ] ; do
+    case "$1" in
+      -d|--directory)
+        shift
+        BASE_DIR=$1
+        shift
+        ;;
+      -s|--script)
+        shift
+        SCRIPT="$1"
+        shift
+        ;;
+      -f|--force)
+        FORCE=true
+        shift
+        ;;
+      -h|-H|-help|--help)
+        return 1
+        ;; 
+      *)
+        VERB="$1"
+        shift
+        ;;
+    esac
+  done
+}
+
+# $1 String base dir
+# $2 Array override list
+# $3 Force to add into list even the folder doesn't exists
+prepare-list() {
+  declare -a TARGETS=("${!2}")
+  
+  if [ -z "$TARGETS" -o ${#TARGETS[@]} -eq 0 ]; then
+    # no folder list provided
+  	find $1 -maxdepth 1 -mindepth 1 -type d -print | \
+  	while read -r dir; do
+  		validate $dir && echo $dir
+  	done
+  else
+    # folder list provided
+    COUNT=0
+    for folder in "${TARGETS[@]}"
+    do
+      if [[ $folder =~ ^\/.* ]]; then
+        if [ -d "$folder" ] ; then
+          validate "$folder" && echo "$folder" && ((COUNT++))
+        elif $FORCE ; then
+          echo "$folder"
+        fi
+      else
+        if [ -d "$1/$folder" ] ; then
+          validate "$1/$folder" && echo "$1/$folder" && ((COUNT++))
+        elif $FORCE ; then
+          echo "$1/$folder"
+        fi
+      fi
+    done
+    [ $COUNT -eq ${#TARGETS[@]} ]
+  fi
+
+}
+
+validate() {
+  if $FORCE ; then
+    return 0
+  fi
+  [ -e "$1/.git" ] && handle-folder-validate "$1"
+}
+
+# $1 VERB
+# $2 TARGET_LIST Array
+apply-action() {
+
+  declare -a TARGET_LIST=("${!2}")
+  VERB="$1"
+  
+  #Check VERB
+  ACTION_FUNC="action-$VERB"
+  if ! is-action-defined $ACTION_FUNC ; then
+    usage
+    exit
+  fi
+  
+  COUNTER=0
+  RESULT_LIST=""
+  IGNORED_LIST=""
+  WORKING_DIR="$(pwd)"
+  while read -r -u 3 TARGET ; do
+    #Confirm
+    echo -ne "${YELLOW}$TARGET${NC} "
+
+    #Do Work
+    $ACTION_FUNC $TARGET; RET=$?
+    cd $WORKING_DIR
+      
+    #Counters
+    [ $RET -eq 0 ] && RESULT_LIST+="$TARGET\n" || IGNORED_LIST+="$TARGET\n"
+    [ $RET -eq 0 ] && ((COUNTER++))
+    echo
+  done 3<<<"$TARGET_LIST"
+
+  echo -e "Performed '${YELLOW}$VERB${NC}' to following directories:"
+  echo -e "${GREEN}$RESULT_LIST${NC}"
+  echo "Total: $COUNTER"
+  echo 
+  echo -e "Ignored directories:"
+  echo -e "${RED}$IGNORED_LIST${NC}"
+}
+
+### Helper Functions
+is-local-repo() {
+  [ -z "$(git --git-dir=$1/.git --work-tree=$1 remote)" ] && return 0 || return 1	
+}
+
+is-action-defined() {
+  [[ "$(type -t $1)" = 'function' ]]
+}
+### END Helper Functions

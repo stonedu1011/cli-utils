@@ -1,0 +1,10 @@
+from cassandra:3.10
+
+RUN set -ex; \
+  apt-get update && apt-get install -y --no-install-recommends ca-certificates wget; \
+  wget -O /usr/share/cassandra/lib/cassandra-lucene-index-plugin-3.10.0.jar \
+        "https://search.maven.org/remotecontent?filepath=com/stratio/cassandra/cassandra-lucene-index-plugin/3.10.0/cassandra-lucene-index-plugin-3.10.0.jar"; \
+  chmod 644 /usr/share/cassandra/lib/cassandra-lucene-index-plugin-3.10.0.jar; \
+  sed -i 's/enable_user_defined_functions:.*/enable_user_defined_functions: true/g' /etc/cassandra/cassandra.yaml;
+  
+        

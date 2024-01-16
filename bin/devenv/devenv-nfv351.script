@@ -1,0 +1,75 @@
+#!/bin/bash
+
+DOCKER_COMPOSE_PREFIX="docker-compose-"
+DOCKER_COMPOSE_SUFFIX=".yml"
+RESOURCE_DIR_PREFIX="res-"
+CONTAINER_DATA_GROUP="nfv351"
+export CONTAINER_DATA_PATH="/usr/local/var/dev/$CONTAINER_DATA_GROUP"
+export RESOURCE_DIR="${RESOURCE_DIR_PREFIX}${SUB_ACTION}"
+
+env_info() {
+  echo_info "Dev Environment for NFV Microservices"
+  printf "%25s %25s %25s \n" "Component/Service" "Version" "Containerization"
+  #printf "%25s %25s %25s \n" "MongoDB" "3.2+ or Installed" "Supported"
+  printf "%25s %25s %25s \n" "Redis" "3.2+" "Only"
+  printf "%25s %25s %25s \n" "Kafka+Zookeeper" "Latest" "Only"
+  printf "%25s %25s %25s \n" "Consul" "0.9.3" "Only"
+  printf "%25s %25s %25s \n" "Cassandra" "3.10" "Only"
+  printf "%25s %25s %25s \n" "Vault" "0.9.3" "Only"
+  printf "%25s %25s %25s \n" "ElasticSearch" "6.3.2+" "Only"
+  echo_info "Data Volumes: $CONTAINER_DATA_PATH"
+}
+
+env_start() {
+  env_info
+  echo_error "Non-Containerized Service Not Supported"
+	
+  # launchctl start homebrew.mxcl.rabbitmq
+}
+
+env_stop() {
+  env_info
+  echo_error "Non-Containerized Service Not Supported"
+}
+
+env_restart() {
+  env_info
+  echo_error "Non-Containerized Service Not Supported"
+}
+
+env_start_docker() {
+  echo_info `which docker-compose`
+  env_info
+  local docker_compose_file="$CURRENT_DEVENV_SCRIPT_DIR/${DOCKER_COMPOSE_PREFIX}${SUB_ACTION}${DOCKER_COMPOSE_SUFFIX}"
+  docker_prepare_data_volumes || return 1
+  docker-compose -f "$docker_compose_file" -p "$SUB_ACTION" up -d --force-recreate --remove-orphans || return 1
+  echo_info "Done"
+}
+
+env_stop_docker() {
+  env_info
+  local docker_compose_file="$CURRENT_DEVENV_SCRIPT_DIR/${DOCKER_COMPOSE_PREFIX}${SUB_ACTION}${DOCKER_COMPOSE_SUFFIX}"
+  docker_prepare_data_volumes || return 1
+  docker-compose -f "$docker_compose_file" -p "$SUB_ACTION" down --remove-orphans || return 1
+  echo_info "Done"
+}
+
+env_restart_docker() {
+  env_info
+  local docker_compose_file="$CURRENT_DEVENV_SCRIPT_DIR/${DOCKER_COMPOSE_PREFIX}${SUB_ACTION}${DOCKER_COMPOSE_SUFFIX}"
+  docker_prepare_data_volumes || return 1
+  docker-compose -f "$docker_compose_file" -p "$SUB_ACTION" down --remove-orphans || return 1
+  docker-compose -f "$docker_compose_file" -p "$SUB_ACTION" up -d --force-recreate --remove-orphans || return 1
+  echo_info "Done"
+}
+
+docker_prepare_data_volumes() {
+  local data_path="$CONTAINER_DATA_PATH/consul"
+  create_directory_if_absent "$data_path"
+  
+  local data_path="$CONTAINER_DATA_PATH/cassandra"
+  create_directory_if_absent "$data_path"
+  
+  local data_path="$CONTAINER_DATA_PATH/vault"
+  create_directory_if_absent "$data_path"
+}

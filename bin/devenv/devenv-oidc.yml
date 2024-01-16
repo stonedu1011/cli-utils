@@ -1,0 +1,38 @@
+services:
+  -
+    service: mongodb
+    display_name: MongoDB
+    display_version: 4.2
+    image: mongo:4.2
+    mounts:
+      - mongodb
+  -
+    service: httpd
+    display_name: Apache2
+    display_version: 2.4
+    image: httpd-oidc:4.1.38
+  -
+    service: oidc_tester
+    display_name: OIDC CS
+    display_version: 4.1.38
+    image: oidc_tester:4.1.38
+    build_args:
+      conformance_suite_version: 4.1.38
+
+
+# pre_start should be shell scripts
+pre_start:
+#  - pre-start-optest.sh
+  
+# pre_stop should be shell scripts  
+#pre_stop:
+#  - 
+  
+# post_start should be post start containers
+post_start:
+#  - post_start_vault
+#  - post_start_cassandra
+#  - post_start_consul
+
+
+    

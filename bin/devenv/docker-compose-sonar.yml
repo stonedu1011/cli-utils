@@ -1,0 +1,58 @@
+version: '3.9'
+  
+networks:
+  default:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 10.102.0.0/16
+
+volumes:
+  sonarqube_data:
+    name: sonarqube_data
+    driver: local
+  sonarqube_logs:
+    name: sonarqube_logs
+    driver: local
+  sonarqube_extensions:
+    name: sonarqube_extensions
+    driver: local
+
+services:
+  sonarqube:
+    image: "${sonarqube_image}"
+    restart: "no"
+    ports:
+      - "9000:9000/tcp"
+    build:
+      context: "./${RESOURCE_DIR}/sonarqube"
+      dockerfile: Dockerfile
+      args:
+        - "SONARQUBE_VERSION=${build_args_sonarqube_version}"
+        - "SONARQUBE_ZIP_URL=${build_args_sonarqube_zip_url}"
+#    environment:
+#      SONAR_SEARCH_HOST: "es"
+#      SONAR_SEARCH_PORT:
+#      SONAR_JDBC_URL: ""
+#      SONAR_JDBC_USERNAME: ""
+#      SONAR_JDBC_PASSWORD: ""
+    volumes:
+      - "sonarqube_data:/opt/sonarqube/data"
+      - "sonarqube_extensions:/opt/sonarqube/extensions"
+      - "sonarqube_logs:/opt/sonarqube/logs"
+
+#  es:
+#    image: "${es_image}"
+#    restart: "no"
+#    ports:
+#      - "9200:9200"
+#      - "9300:9300"
+#    environment:
+#      discovery.type: "single-node"
+#      cluster.name: "elasticsearch"
+#      ES_JAVA_OPTS: "-Xms256m -Xmx256m"
+#    volumes:
+#      - "${CONTAINER_DATA_PATH}/es:/usr/share/elasticsearch/data:delegated"
+
+  # Post Start

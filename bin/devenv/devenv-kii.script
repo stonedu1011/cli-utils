@@ -1,0 +1,114 @@
+#!/bin/bash
+
+CONTAINER_DATA_GROUP="kii"
+CONTAINER_DATA_PATH="/usr/local/var/dev/$CONTAINER_DATA_GROUP"
+
+env_info() {
+  echo_info "Dev Environment for PHP"
+  printf "%25s %25s %25s \n" "Component/Service" "Version" "Containerization"
+  printf "%25s %25s %25s \n" "Wordpress" "2.4+ or Installed" "Only"
+  printf "%25s %25s %25s \n" "MySql" "5.6+ or Installed" "Only"
+  printf "%25s %25s %25s \n" "janes/alpine-lamp" "N/A" "Only"
+}
+
+env_start() {
+  env_error Non-containerized solution is not supported
+  return 1
+}
+
+env_stop() {
+  env_error Non-containerized solution is not supported
+  return 1
+}
+
+env_restart() {
+  env_info
+  env_error Non-containerized solution is not supported
+  return 1
+}
+
+env_start_docker() {
+  env_info
+  docker_run_mysql
+  docker_run_wordpress
+  echo_info "Done"
+}
+
+env_stop_docker() {
+  env_info
+  docker_stop_container "kii-website-mysql"
+  docker_stop_container "kii-website-wordpress"
+  
+  docker_remove_container "kii-website-mysql"
+  docker_remove_container "kii-website-wordpress"
+}
+
+env_restart_docker() {
+  env_info
+  docker_stop_container "kii-website-mysql"
+  docker_stop_container "kii-website-wordpress"
+  
+  docker_run_mysql
+  docker_run_wordpress
+  echo_info "Done"
+}
+
+docker_run_wordpress() {
+  docker_prepare_run "kii-website-wordpress" || return 1
+  
+#  local data_path="$CONTAINER_DATA_PATH/wordpress"
+#  create_directory_if_absent "$data_path"
+ 
+  echo_info "Starting Wordpress ..."
+  
+  docker run -d --name local_wordpress \
+    -p 80:80 \
+    --link local_mysql:local_mysql \
+    -e WORDPRESS_DB_HOST=local_mysql \
+    -e WORDPRESS_DB_NAME=wp_public_site \
+    -e WORDPRESS_DB_USER=wp_user \
+    -e WORDPRESS_DB_PASSWORD=TestPassword \
+    kii-website-wordpress:1.0.0 \
+    #
+}
+
+docker_run_mysql() {
+  docker_prepare_run "kii-website-mysql" || return 1
+  
+  local data_path="$CONTAINER_DATA_PATH/mysql"
+  create_directory_if_absent "$data_path"
+  local dump_path="$CONTAINER_DATA_PATH/dump"
+  create_directory_if_absent "$dump_path"
+  
+  echo_info "Starting MySQL ..."
+  
+  docker run -d --name local_mysql \
+    -p 3307:3306 \
+    -e DEV_SITE_URL="http://localhost" \
+    -e SITE_URL="http://localhost" \
+    -e MYSQL_ROOT_PASSWORD=TestRootPassword \
+    -e MYSQL_DATABASE=wp_public_site \
+    -e MYSQL_USER=wp_user \
+    -e MYSQL_PASSWORD=TestPassword \
+    kii-website-mysql:1.0.0 \
+    #
+}
+
+docker_run_lamp() {
+#  docker_prepare_run "php-wordpress" || return 1
+#  
+#  local data_path="$CONTAINER_DATA_PATH/lamp"
+#  create_directory_if_absent "$data_path"
+#  
+  echo_info "Starting LAMP Stack ..."
+#  
+#  docker run -d --name local_php \
+#    -p 8080:80 \
+#    -v $data_path/html:/var/www/html \
+#    --link local_mysql:local_mysql \
+#      wordpress:customized \
+    # 
+#    php-wordpress:latest \
+#    
+}
+

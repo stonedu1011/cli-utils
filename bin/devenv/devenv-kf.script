@@ -1,0 +1,168 @@
+#!/bin/bash
+
+LAUNCHD_SERVICES=(
+  "homebrew.mxcl.redis" 
+  "homebrew.mxcl.mongodb"
+  "homebrew.mxcl.rabbitmq"
+)
+
+CONTAINER_DATA_GROUP="kingfisher"
+CONTAINER_DATA_PATH="/usr/local/var/dev/$CONTAINER_DATA_GROUP"
+
+env_info() {
+  echo_info "Dev Environment for Phi Microservices"
+  printf "%25s %25s %25s \n" "Component/Service" "Version" "Containerization"
+  #printf "%25s %25s %25s \n" "MongoDB" "3.2+ or Installed" "Supported"
+  printf "%25s %25s %25s \n" "Redis" "3.2+ or Installed" "Supported"
+  printf "%25s %25s %25s \n" "RabbitMQ" "3.6+ or Installed" "Supported"
+  printf "%25s %25s %25s \n" "Consul" "0.7+ or Installed" "Supported"
+  printf "%25s %25s %25s \n" "Couchbase" "latest or Installed" "Supported"
+}
+
+env_start() {
+  env_info
+  for service in "${LAUNCHD_SERVICES[@]}"; do
+    launchctl start $service
+  done
+  echo_info "Done"
+	
+  # launchctl start homebrew.mxcl.rabbitmq
+}
+
+env_stop() {
+  env_info
+  for service in "${LAUNCHD_SERVICES[@]}"; do
+    launchctl stop $service
+  done
+  echo_info "Done" 
+}
+
+env_restart() {
+  env_info
+  for service in "${LAUNCHD_SERVICES[@]}"; do
+    launchctl stop $service
+  done
+  
+  for service in "${LAUNCHD_SERVICES[@]}"; do
+    launchctl start $service
+  done
+  echo_info "Done"
+}
+
+env_start_docker() {
+  env_info
+  docker_run_consul
+  #docker_run_mongo
+  docker_run_redis
+  docker_run_rabbitmq
+  docker_run_couchbase
+  echo_info "Done"
+}
+
+env_stop_docker() {
+  env_info
+  docker_stop_container "consul"
+  #docker_stop_container "mongo"
+  docker_stop_container "redis"
+  docker_stop_container "rabbitmq"
+  docker_stop_container "couchbase"
+  
+  docker_remove_container "consul"
+  #docker_remove_container "mongo"
+  docker_remove_container "redis"
+  docker_remove_container "rabbitmq"
+  docker_remove_container "couchbase"
+}
+
+env_restart_docker() {
+  env_info
+  docker_stop_container "consul"
+  #docker_stop_container "mongo"
+  docker_stop_container "redis"
+  docker_stop_container "rabbitmq"
+  docker_stop_container "couchbase"
+  
+  docker_run_consul
+  #docker_run_mongo
+  docker_run_redis
+  docker_run_rabbitmq
+  docker_run_couchbase
+  echo_info "Done"
+}
+
+docker_run_consul() {
+  docker_prepare_run "consul" || return 1
+  
+  local data_path="$CONTAINER_DATA_PATH/consul"
+  create_directory_if_absent "$data_path"
+  
+  echo_info "Starting Consul with data mount '$data_path'..."
+
+  docker run -d --name local_consul \
+    -p 8300:8300/tcp \
+    -p 8400:8400/tcp \
+    -p 8301-8302:8301-8302/tcp -p 8301-8302:8301-8302/udp \
+    -p 8500:8500/tcp \
+    -p 8600:8600/tcp -p 8600:8600/udp \
+    -v $data_path:/consul/data \
+    consul:0.9.3 \
+    agent -server -ui \
+     -client 0.0.0.0 \
+    -bind=127.0.0.1 \
+    -retry-join=127.0.0.1 \
+    -bootstrap-expect=1 \
+    #
+}
+
+docker_run_mongo() {
+  docker_prepare_run "mongo" || return 1
+  
+  local data_path="$CONTAINER_DATA_PATH/mongodb"
+  create_directory_if_absent "$data_path"
+  
+  echo_info "Starting MongoDB with data mount '$data_path' ..."
+  
+  docker run -d --name local_mongo \
+    -p 27017:27017 \
+    -v $data_path:/data/db \
+    mongo:3.2 \
+    # 
+}
+
+docker_run_redis() {
+  docker_prepare_run "redis" || return 1
+  
+  echo_info "Starting Redis without volumn mounts ..."
+  docker run -d --name local_redis \
+    -p 6379:6379 \
+    redis:3.2-alpine \
+    #
+}
+
+docker_run_rabbitmq() {
+  docker_prepare_run "rabbitmq" || return 1
+  
+  echo_info "Starting RabbitMQ without volumn mounts ..."
+  docker run -d --name local_rabbitmq \
+    --hostname local-rabbit \
+    -p 5672:5672 \
+    -p 15672:15672 \
+    rabbitmq:3.6-management \
+    #
+}
+
+docker_run_couchbase() {
+  docker_prepare_run "couchbase" || return 1
+  
+  local data_path="$CONTAINER_DATA_PATH/couchbase"
+  create_directory_if_absent "$data_path"
+  
+  echo_info "Starting Couchbase with data mount '$data_path' ..."
+  docker run -d --name local_couchbase \
+    --hostname local-couchbase \
+    -p 8091-8094:8091-8094 \
+    -p 11210:11210 \
+    -v $data_path:/opt/couchbase/var \
+    couchbase:latest \
+    #
+}

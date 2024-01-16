@@ -1,0 +1,21 @@
+ARG LOCALSTACK_IMAGE
+FROM $LOCALSTACK_IMAGE
+
+ENV AWS_ACCESS_KEY_ID="test"
+ENV AWS_SECRET_ACCESS_KEY="test"
+ENV AWS_DEFAULT_REGION="us-east-1"
+ENV AWS_ENDPOINT_URL="http://aws-local:4566"
+
+COPY post-start-aws-local.sh /
+
+RUN chmod +x /post-start-aws-local.sh && \
+    apt-get install -y jq && \
+    rm -rf /var/lib/apt/lists/* && \
+    mkdir -p /data
+
+COPY aws-local-data /data
+
+ENTRYPOINT ["/post-start-aws-local.sh"]
+
+# docker run -ti --name post-start-debug --rm --network cda-tls_default -v "/var/run/docker.sock:/var/run/docker.sock" --entrypoint "/bin/bash" post-start:cda-tls-aws-local
+# export AWS_ENDPOINT_URL="http://aws-local:4566"
